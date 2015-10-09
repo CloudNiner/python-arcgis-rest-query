@@ -83,6 +83,24 @@ to validate your requests via token auth:
 ```
 You can then continue making requests as detailed below.
 
+### Authenticating requests via custom SSL certs
+If your ArcGIS endpoint is protected via SSL and requires particular client certs to connect, you can do the following:
+```python
+>>> from arcgis import ArcGIS
+>>> username = os.getenv('ARCGIS_USERNAME', None)
+>>> password = os.getenv('ARCGIS_PASSWORD', None)
+>>> client_ssl_cert='client_cert.pem'
+>>> server_ssl_cert='server.pem'
+>>> service = ArcGIS("https://sslhostname/to/featureServer",
+                     username=username,
+                     password=password,
+                     client_ssl_cert=client_ssl_cert,
+                     server_ssl_cert=server_ssl_cert,
+                     token_url="https://sslhostname/sharing/rest/generateToken")
+
+```
+You can optionally pass a hostname to the `ssl_ignore_hostname` option to ignore hostname checking for that particular host.
+
 ## ArcGIS.get(layer[,where="1 = 1", fields=[], count_only=False, srid='4326'])
 
 Gets a single layer from the web service.
