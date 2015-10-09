@@ -2,6 +2,25 @@ import json
 import requests
 import os
 
+from requests import Session
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.poolmanager import PoolManager
+
+
+class SSLIgnoreHostnameAdapter(HTTPAdapter):
+    """ Custom Requests pool manager with assert_hostname set to false
+
+    This is used in the ArcGIS constructor if the user requests that ssl hostname checking
+    be off for specific domains
+
+    """
+    def init_poolmanager(self, connections, maxsize, block=False):
+        self.poolmanager = PoolManager(num_pools=connections,
+                                       maxsize=maxsize,
+                                       block=block,
+                                       assert_hostname=False)
+
+
 class ArcGIS:
     """
     A class that can download a layer from a map in an
@@ -23,11 +42,15 @@ class ArcGIS:
     """
     def __init__(self, url, geom_type=None, object_id_field="OBJECTID",
                  username=None, password=None,
-                 token_url='https://www.arcgis.com/sharing/rest/generateToken'):
-        self.url=url
-        self.object_id_field=object_id_field
+                 token_url='https://www.arcgis.com/sharing/rest/generateToken',
+                 referer='http://www.arcgis.com',
+                 server_ssl_cert=None,
+                 client_ssl_cert=None,
+                 ssl_ignore_hostname=None):
+        self.url = url
+        self.object_id_field = object_id_field
         self._layer_descriptor_cache = {}
-        self.geom_type=geom_type
+        self.geom_type = geom_type
         self._geom_parsers = {
             'esriGeometryPoint': self._parse_esri_point,
             'esriGeometryMultipoint': self._parse_esri_multipoint,
@@ -37,8 +60,19 @@ class ArcGIS:
 
         self.username = username
         self.password = password
+        self.referer = referer
         self.token_url = token_url
         self._token = None
+
+        self.session = Session()
+        if ssl_ignore_hostname:
+            # TODO: Ignore multiple hostnames
+            self.session.mount(ssl_ignore_hostname, SSLIgnoreHostnameAdapter())
+        if server_ssl_cert:
+            self.session.verify = server_ssl_cert
+        if client_ssl_cert:
+            self.session.cert = client_ssl_cert
+        self.session.headers.update({'referer': self.referer})
 
     def _build_request(self, layer):
         return urljoin(self.url, layer)
@@ -100,7 +134,7 @@ class ArcGIS:
             params['token'] = self.token
         if self.geom_type:
             params.update({'geometryType': self.geom_type})
-        response = requests.get(self._build_query_request(layer), params=params)
+        response = self.session.get(self._build_query_request(layer), params=params)
         return response.json()
 
     def get_descriptor_for_layer(self, layer):
@@ -112,7 +146,7 @@ class ArcGIS:
             params = {'f': 'pjson'}
             if self.token:
                 params['token'] = self.token
-            response = requests.get(self._build_request(layer), params=params)
+            response = self.session.get(self._build_request(layer), params=params)
             self._layer_descriptor_cache[layer] = response.json()
         return self._layer_descriptor_cache[layer]
 
@@ -201,10 +235,10 @@ class ArcGIS:
                 'password': self.password,
                 'expiration': 60,
                 'client': 'referer',
-                'referer': 'http://www.arcgis.com',
+                'referer': self.referer
             }
             try:
-                response = requests.post(self.token_url, data=token_params).json()
+                response = self.session.post(self.token_url, data=token_params).json()
                 self._token = response['token']
             except requests.exceptions.Timeout:
                 print('Connection to {0} timed out'.format(self.token_url))
