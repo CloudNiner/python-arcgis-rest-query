@@ -7,12 +7,11 @@ class ArcGISTest(unittest.TestCase):
     Make sure we didn't break stuff
     """
     def test_count(self):
-        states = ArcGIS("http://tigerweb.geo.census.gov/arcgis/rest/services/Basemaps/CommunityTIGER/MapServer")
-        count = states.get(28, count_only=True)
-        self.assertEqual(count, 56)
-        count = states.get(28, where="NAME = 'Florida'", count_only=True)
-        # Only one Florida.
-        self.assertEqual(count, 1)
+        districts = ArcGIS("http://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Congressional_Districts/FeatureServer")
+        count = districts.get(0, count_only=True)
+        self.assertEqual(count, 437)
+        count = districts.get(0, where="STATE_ABBR = 'PA'", count_only=True)
+        self.assertEqual(count, 18)
 
     def test_features(self):
         districts = ArcGIS("http://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Congressional_Districts/FeatureServer")
@@ -22,7 +21,7 @@ class ArcGISTest(unittest.TestCase):
         self.assertEqual(len(features.get('features')), 9)
         # Make sure they're polygons
         self.assertEqual(features.get('features')[0].get('geometry').get('type'), "Polygon")
-        # Make sure it's valid json when we dump it 
+        # Make sure it's valid json when we dump it
         self.assertTrue(features == json.loads(json.dumps(features)))
         # Make sure a value that should be there is ther.
         self.assertEqual(features.get('features')[0].get('properties').get('STATE_ABBR'), 'IN')
@@ -37,11 +36,10 @@ class ArcGISTest(unittest.TestCase):
         self.assertEqual(len(features.get('features')[0].get('properties')), 1)
 
     def test_multiple(self):
-        districts = ArcGIS("http://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Legislative/MapServer")
+        districts = ArcGIS("http://sampleserver1.arcgisonline.com/ArcGIS/rest/services/TaxParcel/AssessorsValueAnalysis/MapServer")
         # Gets 114th and 113th congressional districts for hawaii.
-        features = districts.getMultiple([0, 12], where="STATE = 15")
-        self.assertEqual(len(features.get('features')), 4)
-        
+        features = districts.getMultiple([4, 5], where="NOSALE>0", fields='OBJECTID,NOSALE')
+        self.assertEqual(len(features.get('features')), 5)
 
 
 if __name__ == '__main__':
