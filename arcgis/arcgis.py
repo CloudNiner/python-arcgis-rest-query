@@ -21,6 +21,19 @@ class SSLIgnoreHostnameAdapter(HTTPAdapter):
                                        assert_hostname=False)
 
 
+class ArcGISQueryError(Exception):
+    """ A custom exception thrown when the API encounters an error in the query params """
+
+    def __init__(self, json_dict, url):
+        try:
+            message = json_dict['error']['message']
+        except KeyError:
+            message = 'Unknown error'
+        super(ArcGISQueryError, self).__init__(message)
+        self.json = json_dict
+        self.url = url
+
+
 class ArcGIS:
     """
     A class that can download a layer from a map in an
@@ -135,7 +148,10 @@ class ArcGIS:
         if self.geom_type:
             params.update({'geometryType': self.geom_type})
         response = self.session.get(self._build_query_request(layer), params=params)
-        return response.json()
+        jsobj = response.json()
+        if jsobj.get('error', None) is not None:
+            raise ArcGISQueryError(jsobj, response.url)
+        return jsobj
 
     def get_descriptor_for_layer(self, layer):
         """
