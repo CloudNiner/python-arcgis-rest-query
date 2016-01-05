@@ -1,10 +1,14 @@
-import json
+import logging
+
 import requests
-import os
 
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
 
 
 class SSLIgnoreHostnameAdapter(HTTPAdapter):
@@ -152,8 +156,12 @@ class ArcGIS:
             'spatialRel': spatial_rel
         }
 
-        if all([input_srid, input_geom_type, input_geom]):
+        spatial_filter_params = [input_srid, input_geom_type, input_geom, spatial_rel]
+        if all(spatial_filter_params):
             params.update(geom_filter_params)
+
+        if not all(spatial_filter_params) and any(spatial_filter_params):
+            logger.warning('Ignoring spatial filter - not all parameters supplied')
 
         if self.token:
             params['token'] = self.token
