@@ -101,7 +101,7 @@ If your ArcGIS endpoint is protected via SSL and requires particular client cert
 ```
 You can optionally pass a hostname to the `ssl_ignore_hostname` option to ignore hostname checking for that particular host.
 
-## ArcGIS.get(layer[,where="1 = 1", fields=[], count_only=False, srid='4326'])
+## ArcGIS.get(layer[,where="1 = 1", fields=[], count_only=False, srid='4326', input_geom_type=None, input_geom=None, input_srid=None, spatial_rel=None])
 
 Gets a single layer from the web service.
 
@@ -120,6 +120,21 @@ If `count_only` is specified, we return a simple count of the number of features
 >>> southeast_count = service.get(28, where="NAME IN ('Florida', 'Georgia', 'Alabama', 'South Carolina')", count_only=True)
 4
 ```
+
+Additionally, arguments can be supplied to include a spatial query when making a request using the `input_geom_type`, `input_geom`, `input_srid`, and `spatial_rel` arguments.
+
+```python
+>>> geojson = service.get(28)
+>>> input_geom_type = 'esriGeometryPolygon'
+>>> input_geom =  '{"rings":[[[-83.49609375,38.16911413556086],[-83.49609375,41.541477666790286],[-76.0693359375,41.541477666790286],[-76.0693359375,38.16911413556086],[-83.49609375,38.16911413556086]]],"hasZ":false,"hasM":false}'
+>>> input_srid = '4326'
+>>> spatial_rel = 'esriSpatialRelContains'
+>>> only_wv = service.get(28, where="NAME = 'West Virginia'", input_geom_type=input_geom_type, input_geom=input_geom, input_srid=input_srid, spatial_rel=spatial_rel)
+```
+
+`input_geom_type` must be a string and must be one of the available [geometry types](http://resources.arcgis.com/en/help/rest/apiref/index.html?relation.html) `esriGeometryPoint`, `esriGeometryMultipoint`, `esriGeometryPolyline`, `esriGeometryPolygon`, or `esriGeometryEnvelope`. The format of `input_geom` will depend on what the geometry type specified is. Additionally, [spatial relationship](http://resources.esri.com/help/9.3/arcgisserver/apis/soap/SOAP_esriGeometryRelationEnum.htm) must be specified and will determine the type of spatial query to be performed.
+
+Note - all arguments must be specified to perform a spatial query -- omission of one will cause a warning.
 
 ### ArcGIS.getMultiple(layers[, where="1 = 1", fields=[], srid='4326', layer_name_field=None])
 

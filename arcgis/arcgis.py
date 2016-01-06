@@ -1,10 +1,14 @@
-import json
+import logging
+
 import requests
-import os
 
 from requests import Session
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
 
 
 class SSLIgnoreHostnameAdapter(HTTPAdapter):
@@ -130,19 +134,35 @@ class ArcGIS:
             "geometry": geom_parser(obj.get('geometry'))
         }
 
-    def get_json(self, layer, where="1 = 1", fields=[], count_only=False, srid='4326'):
+    def get_json(self, layer, where="1 = 1", fields=[], count_only=False, srid='4326',
+                 input_geom_type=None, input_geom=None, input_srid=None, spatial_rel=None):
         """
         Gets the JSON file from ArcGIS
         """
         params = {
-                'where': where,
-                'outFields': ", ".join(fields),
-                'returnGeometry': True,
-                'outSR': srid,
-                'f': "pjson",
-                'orderByFields': self.object_id_field,
-                'returnCountOnly': count_only
-            }
+            'where': where,
+            'outFields': ", ".join(fields),
+            'returnGeometry': True,
+            'outSR': srid,
+            'f': "pjson",
+            'orderByFields': self.object_id_field,
+            'returnCountOnly': count_only
+        }
+
+        geom_filter_params = {
+            'inSR': input_srid,
+            'geometryType': input_geom_type,
+            'geometry': input_geom,
+            'spatialRel': spatial_rel
+        }
+
+        spatial_filter_params = [input_srid, input_geom_type, input_geom, spatial_rel]
+        if all(spatial_filter_params):
+            params.update(geom_filter_params)
+
+        if not all(spatial_filter_params) and any(spatial_filter_params):
+            logger.warning('Ignoring spatial filter - not all parameters supplied')
+
         if self.token:
             params['token'] = self.token
         if self.geom_type:
@@ -173,7 +193,8 @@ class ArcGIS:
         descriptor = self.get_descriptor_for_layer(layer)
         return [field['name'] for field in descriptor['fields']]
 
-    def get(self, layer, where="1 = 1", fields=[], count_only=False, srid='4326'):
+    def get(self, layer, where="1 = 1", fields=[], count_only=False, srid='4326',
+                 input_geom_type=None, input_geom=None, input_srid=None, spatial_rel=None):
         """
         Gets a layer and returns it as honest to God GeoJSON.
 
@@ -187,7 +208,8 @@ class ArcGIS:
         # the KMZ mode. I'd rather be explicit.
         fields = fields or self.enumerate_layer_fields(layer)
 
-        jsobj = self.get_json(layer, where, fields, count_only, srid)
+        jsobj = self.get_json(layer, where, fields, count_only, srid,
+                              input_geom_type, input_geom, input_srid, spatial_rel)
 
         # Sometimes you just want to know how far there is to go.
         if count_only:
@@ -210,14 +232,17 @@ class ArcGIS:
             if base_where != "1 = 1" :
                 # If we have another WHERE filter we needed to tack that back on.
                 where += " AND %s" % base_where
-            jsobj = self.get_json(layer, where, fields, count_only, srid)
+            jsobj = self.get_json(layer, where, fields, count_only, srid,
+                                  input_geom_type, input_geom, input_srid, spatial_rel)
+
 
         return {
             'type': "FeatureCollection",
             'features': features
         }
 
-    def getMultiple(self, layers, where="1 = 1", fields=[], srid='4326', layer_name_field=None):
+    def getMultiple(self, layers, where="1 = 1", fields=[], srid='4326', layer_name_field=None,
+                    input_geom_type=None, input_geom=None, input_srid=None, spatial_rel=None):
         """
         Get a bunch of layers and concatenate them together into one. This is useful if you
         have a map with layers for, say, every year named stuff_2014, stuff_2013, stuff_2012. Etc.

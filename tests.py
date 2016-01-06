@@ -41,6 +41,19 @@ class ArcGISTest(unittest.TestCase):
         features = districts.getMultiple([4, 5], where="NOSALE>0", fields='OBJECTID,NOSALE')
         self.assertEqual(len(features.get('features')), 5)
 
+    def test_spatial_query(self):
+        districts = ArcGIS("http://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_Congressional_Districts/FeatureServer")
+        full_count = districts.get(0, count_only=True)
+        self.assertEqual(full_count, 437)
+
+        input_geom_type = 'esriGeometryPolygon'
+        # Roughly PA
+        input_geom = '{"rings":[[[-80.70556640625,39.223742741391305],[-80.70556640625,42.407234661551875],[-75.311279296875,42.407234661551875],[-75.311279296875,39.223742741391305],[-80.70556640625,39.223742741391305]]],"hasZ":false,"hasM":false}'
+        input_srid = '4326'
+        spatial_rel = 'esriSpatialRelContains'
+        filtered_count = districts.get(0, where="STATE_ABBR = 'PA'", count_only=True, input_geom_type=input_geom_type, input_geom=input_geom, input_srid=input_srid, spatial_rel=spatial_rel)
+        self.assertEqual(filtered_count, 10)
+        self.assertNotEqual(full_count, filtered_count)
 
 if __name__ == '__main__':
     unittest.main()
